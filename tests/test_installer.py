@@ -150,8 +150,10 @@ class InstallerContractTests(unittest.TestCase):
         self.assertIn("COWRIE_LOGROTATE", transaction)
 
     def test_systemd_runs_installed_virtualenv_entrypoint(self) -> None:
-        self.assertIn("ExecStart=${COWRIE_BIN} start -n", INSTALLER)
+        self.assertIn("ExecStart=${COWRIE_BIN} start", INSTALLER)
+        self.assertIn("Environment=COWRIE_STDOUT=yes", INSTALLER)
         self.assertIn("Environment=PATH=${COWRIE_VENV}/bin:", INSTALLER)
+        self.assertNotIn("ExecStart=${COWRIE_BIN} start -n", INSTALLER)
         self.assertNotIn("bin/cowrie start -n", INSTALLER)
         self.assertIn("Restart=on-failure", INSTALLER)
         self.assertNotIn("Restart=always", INSTALLER)
@@ -217,6 +219,11 @@ class InstallerContractTests(unittest.TestCase):
         self.assertIn("systemctl is-active --quiet cowrie", health)
         self.assertRegex(health, r"\bss\s+-H\s+-ltn")
         self.assertIn("COWRIE_SSH_PORT", health)
+        self.assertIn("report_cowrie_diagnostics", health)
+
+        diagnostics = self.function_body("report_cowrie_diagnostics")
+        self.assertIn("systemctl status cowrie", diagnostics)
+        self.assertIn("journalctl -u cowrie", diagnostics)
 
     def test_log_management_is_scoped_to_cowrie(self) -> None:
         self.assertIn("/etc/logrotate.d/cowrie", INSTALLER)

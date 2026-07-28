@@ -561,8 +561,9 @@ User=cowrie
 Group=cowrie
 WorkingDirectory=${COWRIE_INSTALL_DIR}
 Environment=HOME=${COWRIE_INSTALL_DIR}/var/lib/cowrie
+Environment=COWRIE_STDOUT=yes
 Environment=PATH=${COWRIE_VENV}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=${COWRIE_BIN} start -n
+ExecStart=${COWRIE_BIN} start
 Restart=on-failure
 RestartSec=10
 UMask=0077
@@ -594,6 +595,12 @@ ${COWRIE_INSTALL_DIR}/var/log/cowrie/*.log ${COWRIE_INSTALL_DIR}/var/log/cowrie/
 EOF
 }
 
+report_cowrie_diagnostics() {
+    warn "Cowrie 启动检查失败，输出诊断信息"
+    systemctl status cowrie --no-pager >&2 || true
+    journalctl -u cowrie -n 80 --no-pager >&2 || true
+}
+
 start_and_verify_cowrie() {
     local elapsed
 
@@ -604,14 +611,20 @@ start_and_verify_cowrie() {
     elapsed=0
     while ((elapsed < COWRIE_SETTLE_SECONDS)); do
         sleep 1
-        systemctl is-active --quiet cowrie || die "Cowrie 在稳定性观察期内退出"
+        if ! systemctl is-active --quiet cowrie; then
+            report_cowrie_diagnostics
+            die "Cowrie 在稳定性观察期内退出"
+        fi
         elapsed=$((elapsed + 1))
     done
 
-    ss -H -ltn | awk -v port="$COWRIE_SSH_PORT" '
+    if ! ss -H -ltn | awk -v port="$COWRIE_SSH_PORT" '
         $4 ~ (":" port "$") { found = 1 }
         END { exit(found ? 0 : 1) }
-    ' || die "Cowrie 服务 active，但未监听配置端口 ${COWRIE_SSH_PORT}"
+    '; then
+        report_cowrie_diagnostics
+        die "Cowrie 服务 active，但未监听配置端口 ${COWRIE_SSH_PORT}"
+    fi
     log "Cowrie 已稳定运行 ${COWRIE_SETTLE_SECONDS} 秒并监听 ${COWRIE_SSH_PORT}/tcp"
 }
 
