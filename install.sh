@@ -167,10 +167,18 @@ begin_transaction() {
     backup_file "$COWRIE_CONFIG"
     CONFIG_BACKUP="$LAST_BACKUP"
 
-    systemctl is-active --quiet fail2ban && FAIL2BAN_WAS_ACTIVE=1 || true
-    systemctl is-active --quiet cowrie && COWRIE_WAS_ACTIVE=1 || true
-    systemctl is-enabled --quiet fail2ban && FAIL2BAN_WAS_ENABLED=1 || true
-    systemctl is-enabled --quiet cowrie && COWRIE_WAS_ENABLED=1 || true
+    if systemctl is-active --quiet fail2ban; then
+        FAIL2BAN_WAS_ACTIVE=1
+    fi
+    if systemctl is-active --quiet cowrie; then
+        COWRIE_WAS_ACTIVE=1
+    fi
+    if systemctl is-enabled --quiet fail2ban; then
+        FAIL2BAN_WAS_ENABLED=1
+    fi
+    if systemctl is-enabled --quiet cowrie; then
+        COWRIE_WAS_ENABLED=1
+    fi
     TRANSACTION_ACTIVE=1
 }
 
@@ -600,7 +608,9 @@ main() {
     require_root
     check_platform
     validate_settings
-    is_managed_installation && INSTALL_WAS_MANAGED=1 || true
+    if is_managed_installation; then
+        INSTALL_WAS_MANAGED=1
+    fi
     begin_transaction
     install_dependencies
     ensure_cowrie_account
