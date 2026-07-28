@@ -561,9 +561,8 @@ User=cowrie
 Group=cowrie
 WorkingDirectory=${COWRIE_INSTALL_DIR}
 Environment=HOME=${COWRIE_INSTALL_DIR}/var/lib/cowrie
-Environment=COWRIE_STDOUT=yes
 Environment=PATH=${COWRIE_VENV}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=${COWRIE_BIN} start
+ExecStart=${COWRIE_VENV}/bin/twistd --umask=0022 --nodaemon --pidfile= -l - cowrie
 Restart=on-failure
 RestartSec=10
 UMask=0077

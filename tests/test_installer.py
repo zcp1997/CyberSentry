@@ -149,11 +149,14 @@ class InstallerContractTests(unittest.TestCase):
         transaction = self.function_body("begin_transaction")
         self.assertIn("COWRIE_LOGROTATE", transaction)
 
-    def test_systemd_runs_installed_virtualenv_entrypoint(self) -> None:
-        self.assertIn("ExecStart=${COWRIE_BIN} start", INSTALLER)
-        self.assertIn("Environment=COWRIE_STDOUT=yes", INSTALLER)
+    def test_systemd_runs_twistd_without_a_pidfile(self) -> None:
+        self.assertIn(
+            "ExecStart=${COWRIE_VENV}/bin/twistd --umask=0022 --nodaemon --pidfile= -l - cowrie",
+            INSTALLER,
+        )
         self.assertIn("Environment=PATH=${COWRIE_VENV}/bin:", INSTALLER)
-        self.assertNotIn("ExecStart=${COWRIE_BIN} start -n", INSTALLER)
+        self.assertNotIn("Environment=COWRIE_STDOUT=yes", INSTALLER)
+        self.assertNotIn("ExecStart=${COWRIE_BIN} start", INSTALLER)
         self.assertNotIn("bin/cowrie start -n", INSTALLER)
         self.assertIn("Restart=on-failure", INSTALLER)
         self.assertNotIn("Restart=always", INSTALLER)
