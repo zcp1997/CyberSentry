@@ -1,249 +1,149 @@
 # CyberSentry
-**本项目由 [YxVM](https://yxvm.com/) 赞助支持, 非常感谢**
 
 [English](./README_EN.md) | 简体中文
 
-一个综合性的网络安全防御系统，集成了蜜罐、入侵检测、安全加固等多重防护机制。
+安全、可重复执行的 Debian/Ubuntu 部署脚本，用于安装：
 
-## 核心功能
+- Cowrie SSH/Telnet 蜜罐
+- Fail2ban SSH 防护
+- Cowrie systemd 服务
+- 仅针对 Cowrie 日志的 logrotate 规则
 
-1. 蜜罐系统
-   - SSH 蜜罐
-   - 攻击者行为记录
-   - 攻击模式分析
+此 fork 修复了原脚本与 Cowrie 3.x 不兼容的问题，并移除了会影响整台 VPS 的高风险操作。
 
-2. 安全防护
-   - Fail2ban 集成
-   - 系统加固
-   - 自动封禁
+## 安全边界
 
-3. 日志管理
-   - 自动日志轮转
-   - 智能清理
-   - 分析报告
+安装器**不会**：
 
-4. 系统监控
-   - 实时监控
-   - 异常检测
-   - 告警通知
+- 克隆 Cowrie 不稳定的 `main` 分支
+- 修改 `/etc/apt/sources.list` 或执行发行版升级
+- 替换系统默认 `python3`
+- 修改系统时区
+- 修改 SSH 端口、认证方式或密钥
+- 自动启用或修改 UFW
+- 清理 `/var/log` 中其他服务的日志
+- 删除无法识别的 `/opt/cowrie`
 
-## 特点
-- 一键部署
-- 全自动化运维
-- 完整审计追踪
-- 智能防御响应
+旧版或失败的 Cowrie 目录会原样保留为：
 
-## 快速开始
-
-### 一键安装
-
-```bash
-bash <(curl -sL https://raw.githubusercontent.com/CurtisLu1/CyberSentry/main/install.sh)
+```text
+/opt/cowrie.legacy-YYYYMMDD_HHMMSS-PID
 ```
 
-### 系统要求
+其中的旧配置不会自动合并到新安装；请在新服务验证成功后手工比对。对于本 fork 已识别的受管安装，脚本才会备份当前配置并协调三个受管键。
 
-- Debian/Ubuntu 系统
+## 系统要求
+
+- Debian 或 Ubuntu
+- systemd
 - Root 权限
-- Python 3.9+ (如果系统 Python 版本低于 3.9，将自动升级)
-  - Debian 10: 通过 backports 源安装
-  - Debian 11/12: 通过官方源安装
-  - Ubuntu: 通过 deadsnakes PPA 安装
+- Python 3.10+
 
-## 功能特点
+通常建议使用 Debian 12+ 或 Ubuntu 22.04+。安装器不会通过 PPA、跨发行版软件源或 `update-alternatives` 强行替换 Python。
 
-- 自动部署 Cowrie SSH 蜜罐
-- 集成 Fail2ban 防护
-- 自动日志清理（默认保留30天）
-- 系统日志自动轮转
-- 服务自动启动
-- SSH 安全配置（可选）：
-  - 端口配置：
-    - 默认保持现有配置
-    - 随机生成（10000-65535）
-    - 手动指定（1024-65535）
-  - 认证方式：
-    - 保持现有配置
-    - 仅密钥认证
-    - 密码+密钥认证
-  - 密钥管理：
-    - 保持现有密钥
-    - 导入新公钥
-    - 自动生成新密钥对
-- UFW 防火墙配置（可选）：
-  - 自动配置必需端口（SSH和蜜罐）
-  - 智能规则管理（自动处理端口变更）
-  - 详细规则处理：
-    - 自动添加和删除规则
-    - 规则冲突检测
-    - 规则优先级管理
+## 安装
 
-## 安装过程
-
-1. 环境检查：
-   - 系统兼容性验证
-   - Python 环境检测
-   - 必需命令检查
-2. 依赖安装：
-   - fail2ban
-   - Python virtualenv
-   - 其他必需包
-3. 组件配置：
-   - Cowrie 蜜罐（端口 2222）
-   - Fail2ban 防护
-   - 日志清理（每日凌晨2点）
-4. 安全配置：
-   - SSH 端口配置
-   - 认证方式设置
-   - 密钥管理
-   - 防火墙规则
-
-## 配置说明
-
-### Fail2ban 配置
-- 封禁时间：24小时（86400秒）
-- 检测窗口：5分钟（300秒）
-- 最大重试：3次
-- 监控日志：auth.log 和 cowrie.log
-
-### SSH 配置选项
-- 端口选择：
-  - 保持现有端口
-  - 随机端口（10000-65535）
-  - 手动指定（1024-65535）
-- 认证方式：
-  - 保持现有配置
-  - 仅密钥认证
-  - 密码+密钥认证
-- 密钥选项：
-  - 保持现有密钥
-  - 导入新公钥
-  - 生成新密钥对（4096位 RSA）
-
-### 防火墙设置
-- 自动配置 SSH 端口
-- 自动配置蜜罐端口（2222）
-- 智能规则管理
-- 可选启用 UFW
-- 详细规则处理：
-  - 自动添加和删除规则
-  - 规则冲突检测
-  - 规则优先级管理
-
-## 日志管理
-
-### 日志位置
-- Cowrie 日志：`/opt/cowrie/var/log/cowrie/`
-- Fail2ban 日志：`/var/log/fail2ban.log`
-- 系统日志：`/var/log/`
-- 清理日志：`/var/log/cleanup.log`
-
-### 日志轮转
-- 每周轮转
-- 保留4个版本
-- 自动压缩
-- 自动清理30天前的日志
-
-## 配置备份
-
-### 备份策略
-- 备份位置：`/root/config_backups/`
-- 命名格式：`配置文件名.YYYYMMDD_HHMMSS.bak`
-- 保留策略：每个配置保留最近3-5个版本
-- 自动清理：删除过期备份
-
-### 备份内容
-- SSH配置：`sshd_config` 备份
-- Fail2ban配置：`jail.local` 备份
-- 每次修改配置前自动创建备份
-- 支持配置回滚
-
-### 备份管理
-
-## 服务管理
+建议先下载和检查，再执行：
 
 ```bash
-# 状态查看
-systemctl status cowrie
-systemctl status fail2ban
-ufw status
-
-# 日志查看
-tail -f /opt/cowrie/var/log/cowrie/cowrie.log
-journalctl -u cowrie -f
-tail -f /var/log/fail2ban.log
-
-# 服务控制
-systemctl start|stop|restart cowrie
-systemctl start|stop|restart fail2ban
+curl -fsSLO https://raw.githubusercontent.com/zcp1997/CyberSentry/main/install.sh
+less install.sh
+sudo bash install.sh
 ```
 
-## 安全建议
+默认配置：
 
-1. 安装完成后：
-   - 保存显示的 SSH 端口号
-   - 备份生成的 SSH 密钥（如果有）
-   - 测试新配置前保留当前会话
-2. 防火墙配置：
-   - 确保必要端口已开放
-   - 建议启用 UFW
-   - 定期检查防火墙规则
-3. 日常维护：
-   - 定期检查系统日志
-   - 监控蜜罐日志
-   - 及时更新系统
+- Cowrie：固定安装 PyPI `3.0.0`
+- Cowrie 状态目录：`/opt/cowrie`
+- Cowrie 监听端口：`2222/tcp`
+- 蜜罐主机名：`debian-s31343`
+- 单个下载大小限制：1 MiB
+- Cowrie 日志轮转：每日，保留 30 份
+- Fail2ban：24 小时封禁、30 分钟检测窗口、3 次失败
 
-## 卸载方法
+## 自定义参数
+
+通过环境变量覆盖默认值：
 
 ```bash
-# 停止服务
-systemctl stop cowrie
-systemctl disable cowrie
+sudo \
+  COWRIE_VERSION=3.0.0 \
+  COWRIE_HOSTNAME=my-honeypot \
+  COWRIE_SSH_PORT=2222 \
+  COWRIE_DOWNLOAD_LIMIT=1048576 \
+  LOG_RETENTION_DAYS=30 \
+  bash install.sh
+```
 
-# 删除文件
-rm -rf /opt/cowrie
-rm /etc/systemd/system/cowrie.service
+约束：
 
-# 重载服务
-systemctl daemon-reload
+- `COWRIE_SSH_PORT` 必须是 `1024-65535`
+- `COWRIE_HOSTNAME` 最长 64 字符，只允许字母、数字、点、下划线和连字符
+- `COWRIE_VERSION` 应固定为经过验证的 Cowrie 发行版本
+
+## 安装逻辑
+
+1. 安装 Cowrie 官方所需的 Python/编译依赖和 Fail2ban。
+2. 验证系统 Python 为 3.10+，但不修改系统 Python。
+3. 在 `/opt/cowrie/cowrie-env` 创建独立 venv。
+4. 使用 `pip install cowrie==固定版本` 安装 Cowrie。
+5. 首次安装时运行 `cowrie init`；已有配置会先备份，再将 `hostname`、`download_limit_size` 和 `listen_endpoints` 三个受管键协调为本次环境变量或默认值，其他配置保持不变。
+6. 将 venv、配置和安装目录设为 root 只读，仅允许 `cowrie` 写入 `/opt/cowrie/var`。
+7. 通过 `/opt/cowrie/cowrie-env/bin/cowrie start -n` 启动 systemd 服务。
+8. 等待服务稳定并确认端口实际监听，同时验证 Fail2ban 的 `sshd` jail。
+
+## 端口与防火墙
+
+安装器不自动修改 SSH 或 UFW，避免把远程 VPS 锁死。
+
+如果已经启用 UFW，请手动确认 Cowrie 端口已放行：
+
+```bash
+ufw allow 2222/tcp comment 'Cowrie Honeypot'
+ufw status
+```
+
+Cowrie 默认监听 2222，而不是公网标准 SSH 端口 22。若要捕获访问 22 的流量，应先将真实 SSH 安全迁移到其他端口并从另一个会话验证，再单独配置 nftables/iptables 的 `22 -> 2222` 转发。
+
+## 文件位置
+
+- Cowrie 配置：`/opt/cowrie/etc/cowrie.cfg`
+- Cowrie 日志：`/opt/cowrie/var/log/cowrie/`
+- Cowrie venv：`/opt/cowrie/cowrie-env/`
+- systemd 服务：`/etc/systemd/system/cowrie.service`
+- Fail2ban 配置：`/etc/fail2ban/jail.d/cybersentry.local`
+- logrotate：`/etc/logrotate.d/cowrie`
+- 配置备份：`/root/config_backups/`
+
+## 常用命令
+
+```bash
+systemctl status cowrie fail2ban
+systemctl restart cowrie
+journalctl -u cowrie -f
+tail -f /opt/cowrie/var/log/cowrie/cowrie.log
+fail2ban-client status sshd
+```
+
+## 从原脚本失败状态恢复
+
+如果原脚本停在：
+
+```text
+cp: cannot stat 'etc/cowrie.cfg.dist': No such file or directory
+```
+
+直接运行此 fork 的新安装器即可。旧的 `/opt/cowrie` 不会被删除，而会被移动到带时间戳的 `.legacy-*` 目录。确认新服务及所需旧日志、配置均无误后，再自行决定是否清理旧目录。
+
+## 本地静态验证
+
+验证不会运行安装器：
+
+```bash
+bash -n install.sh
+python3 -m unittest -v tests/test_installer.py
 ```
 
 ## 许可证
 
-MIT License
-
-Copyright (c) 2025
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-## 贡献指南
-
-欢迎通过以下方式贡献：
-- 提交 Issue
-- 提交 Pull Request
-- 完善文档
-- 分享使用经验
-
-## 问题反馈
-
-如遇问题，请提供以下信息：
-1. 系统版本
-2. Python 版本
-3. 错误信息
-4. 相关日志
+MIT License，沿用原项目许可。

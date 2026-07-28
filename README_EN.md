@@ -1,250 +1,149 @@
 # CyberSentry
 
-**This project is supported by [YxVM](https://yxvm.com/) .** 
-
 [简体中文](./README.md) | English
 
-A comprehensive network security defense system integrating honeypot, intrusion detection, security hardening and multiple protection mechanisms.
+A safer, repeatable Debian/Ubuntu installer for:
 
-## Core Features
+- Cowrie SSH/Telnet honeypot
+- Fail2ban SSH protection
+- A hardened Cowrie systemd service
+- Log rotation scoped only to Cowrie logs
 
-1. Honeypot System
-   - SSH Honeypot
-   - Attacker Behavior Recording
-   - Attack Pattern Analysis
+This fork fixes the original installer's incompatibility with Cowrie 3.x and removes host-wide destructive behavior.
 
-2. Security Protection
-   - Fail2ban Integration
-   - System Hardening
-   - Automatic Blocking
+## Safety boundaries
 
-3. Log Management
-   - Automatic Log Rotation
-   - Smart Cleanup
-   - Analysis Reports
+The installer does **not**:
 
-4. System Monitoring
-   - Real-time Monitoring
-   - Anomaly Detection
-   - Alert Notification
+- Clone Cowrie's moving `main` branch
+- Rewrite APT repositories or perform a distribution upgrade
+- Replace the system `python3`
+- Change the system timezone
+- Change SSH ports, authentication, or keys
+- Enable or modify UFW automatically
+- Delete unrelated files under `/var/log`
+- Delete an unrecognised `/opt/cowrie` directory
 
-## Highlights
-- One-click Deployment
-- Fully Automated Operations
-- Complete Audit Trail
-- Intelligent Defense Response
+An old or incomplete Cowrie directory is preserved as:
 
-## Quick Start
-
-### One-click Installation
-
-```bash
-bash <(curl -sL https://raw.githubusercontent.com/CurtisLu1/CyberSentry/main/install.sh)
+```text
+/opt/cowrie.legacy-YYYYMMDD_HHMMSS-PID
 ```
 
-### System Requirements
+Its configuration is not merged automatically into the replacement. Compare it manually after the new service is verified. Backup-and-reconcile behavior applies only to installations already recognized as managed by this fork.
 
-- Debian/Ubuntu System
+## Requirements
+
+- Debian or Ubuntu
+- systemd
 - Root privileges
-- Python 3.9+ (will automatically upgrade if system Python version is below 3.9)
-  - Debian 10: via backports repository
-  - Debian 11/12: via official repository
-  - Ubuntu: via deadsnakes PPA
+- Python 3.10+
 
-## Features
+Debian 12+ or Ubuntu 22.04+ is recommended. The installer will not use a PPA, cross-release repositories, or `update-alternatives` to force a different Python version.
 
-- Automatic Cowrie SSH honeypot deployment
-- Integrated Fail2ban protection
-- Automatic log cleanup (30 days retention by default)
-- System log rotation
-- Service auto-start
-- SSH security configuration (optional):
-  - Port configuration:
-    - Keep existing configuration
-    - Random generation (10000-65535)
-    - Manual specification (1024-65535)
-  - Authentication methods:
-    - Keep existing configuration
-    - Key-only authentication
-    - Password + key authentication
-  - Key management:
-    - Keep existing keys
-    - Import new public key
-    - Auto-generate new key pair
-- UFW firewall configuration (optional):
-  - Auto-configure required ports (SSH and honeypot)
-  - Smart rule management (automatic port change handling)
-  - Detailed rule processing:
-    - Auto add/remove rules
-    - Rule conflict detection
-    - Rule priority management
+## Install
 
-## Installation Process
-
-1. Environment check:
-   - System compatibility verification
-   - Python environment detection
-   - Required command check
-2. Dependency installation:
-   - fail2ban
-   - Python virtualenv
-   - Other required packages
-3. Component configuration:
-   - Cowrie honeypot (port 2222)
-   - Fail2ban protection
-   - Log cleanup (2 AM daily)
-4. Security configuration:
-   - SSH port configuration
-   - Authentication method settings
-   - Key management
-   - Firewall rules
-
-## Configuration Details
-
-### Fail2ban Configuration
-- Ban time: 24 hours (86400 seconds)
-- Detection window: 5 minutes (300 seconds)
-- Max retry: 3 times
-- Monitored logs: auth.log and cowrie.log
-
-### SSH Configuration Options
-- Port selection:
-  - Keep existing port
-  - Random port (10000-65535)
-  - Manual specification (1024-65535)
-- Authentication methods:
-  - Keep existing configuration
-  - Key-only authentication
-  - Password + key authentication
-- Key options:
-  - Keep existing keys
-  - Import new public key
-  - Generate new key pair (4096-bit RSA)
-
-### Firewall Settings
-- Auto-configure SSH port
-- Auto-configure honeypot port (2222)
-- Smart rule management
-- Optional UFW enablement
-- Detailed rule processing:
-  - Auto add/remove rules
-  - Rule conflict detection
-  - Rule priority management
-
-## Log Management
-
-### Log Locations
-- Cowrie logs: `/opt/cowrie/var/log/cowrie/`
-- Fail2ban logs: `/var/log/fail2ban.log`
-- System logs: `/var/log/`
-- Cleanup logs: `/var/log/cleanup.log`
-
-### Log Rotation
-- Weekly rotation
-- Keep 4 versions
-- Automatic compression
-- Auto-cleanup of logs older than 30 days
-
-## Configuration Backup
-
-### Backup Strategy
-- Location: `/root/config_backups/`
-- Naming format: `configname.YYYYMMDD_HHMMSS.bak`
-- Retention: Keeps 3-5 most recent versions per config
-- Auto cleanup: Removes expired backups
-
-### Backed Up Configs
-- SSH config: `sshd_config` backups
-- Fail2ban config: `jail.local` backups
-- Automatic backup before each config change
-- Supports configuration rollback
-
-### Backup Management
-
-## Service Management
+Download and inspect the script before running it:
 
 ```bash
-# Status check
-systemctl status cowrie
-systemctl status fail2ban
-ufw status
-
-# Log viewing
-tail -f /opt/cowrie/var/log/cowrie/cowrie.log
-journalctl -u cowrie -f
-tail -f /var/log/fail2ban.log
-
-# Service control
-systemctl start|stop|restart cowrie
-systemctl start|stop|restart fail2ban
+curl -fsSLO https://raw.githubusercontent.com/zcp1997/CyberSentry/main/install.sh
+less install.sh
+sudo bash install.sh
 ```
 
-## Security Recommendations
+Defaults:
 
-1. After installation:
-   - Save the displayed SSH port number
-   - Backup generated SSH keys (if any)
-   - Keep current session before testing new configuration
-2. Firewall configuration:
-   - Ensure necessary ports are open
-   - Recommend enabling UFW
-   - Regular firewall rule checks
-3. Regular maintenance:
-   - Regular system log checks
-   - Monitor honeypot logs
-   - Timely system updates
+- Cowrie: pinned PyPI release `3.0.0`
+- State directory: `/opt/cowrie`
+- Listen port: `2222/tcp`
+- Honeypot hostname: `debian-s31343`
+- Per-download limit: 1 MiB
+- Cowrie log rotation: daily, 30 rotations
+- Fail2ban: 24-hour ban, 30-minute find window, 3 retries
 
-## Uninstallation
+## Configuration overrides
+
+Use environment variables to override defaults:
 
 ```bash
-# Stop services
-systemctl stop cowrie
-systemctl disable cowrie
+sudo \
+  COWRIE_VERSION=3.0.0 \
+  COWRIE_HOSTNAME=my-honeypot \
+  COWRIE_SSH_PORT=2222 \
+  COWRIE_DOWNLOAD_LIMIT=1048576 \
+  LOG_RETENTION_DAYS=30 \
+  bash install.sh
+```
 
-# Remove files
-rm -rf /opt/cowrie
-rm /etc/systemd/system/cowrie.service
+Constraints:
 
-# Reload systemd
-systemctl daemon-reload
+- `COWRIE_SSH_PORT` must be between `1024-65535`
+- `COWRIE_HOSTNAME` is limited to 64 letters, digits, dots, underscores, and hyphens
+- `COWRIE_VERSION` should remain pinned to a tested Cowrie release
+
+## Installation design
+
+1. Install Cowrie's Python/build dependencies and Fail2ban.
+2. Require Python 3.10+ without changing the system interpreter.
+3. Create an isolated venv at `/opt/cowrie/cowrie-env`.
+4. Install Cowrie with `pip install cowrie==<pinned version>`.
+5. Run `cowrie init` for a new state directory. Existing configuration is backed up, then the managed `hostname`, `download_limit_size`, and `listen_endpoints` keys are reconciled to the requested environment values or defaults; other settings remain unchanged.
+6. Make the venv, configuration, and install tree root-owned and read-only, leaving only `/opt/cowrie/var` writable by `cowrie`.
+7. Start systemd with `/opt/cowrie/cowrie-env/bin/cowrie start -n`.
+8. Require a stable service interval, verify the listening socket, and confirm the Fail2ban `sshd` jail.
+
+## Ports and firewall
+
+The installer deliberately leaves SSH and UFW unchanged to avoid locking users out of remote VPS hosts.
+
+If UFW is already enabled, allow the Cowrie port manually:
+
+```bash
+ufw allow 2222/tcp comment 'Cowrie Honeypot'
+ufw status
+```
+
+Cowrie listens on 2222 by default, not the public SSH port 22. To capture port-22 traffic, first move the real SSH daemon to another port and verify access from a second session. Configure the `22 -> 2222` nftables/iptables redirect separately afterward.
+
+## Paths
+
+- Cowrie config: `/opt/cowrie/etc/cowrie.cfg`
+- Cowrie logs: `/opt/cowrie/var/log/cowrie/`
+- Cowrie venv: `/opt/cowrie/cowrie-env/`
+- systemd unit: `/etc/systemd/system/cowrie.service`
+- Fail2ban config: `/etc/fail2ban/jail.d/cybersentry.local`
+- logrotate config: `/etc/logrotate.d/cowrie`
+- Config backups: `/root/config_backups/`
+
+## Service commands
+
+```bash
+systemctl status cowrie fail2ban
+systemctl restart cowrie
+journalctl -u cowrie -f
+tail -f /opt/cowrie/var/log/cowrie/cowrie.log
+fail2ban-client status sshd
+```
+
+## Recovering from the original installer failure
+
+If the original installer stopped with:
+
+```text
+cp: cannot stat 'etc/cowrie.cfg.dist': No such file or directory
+```
+
+Run this fork's installer. It preserves the failed `/opt/cowrie` tree in a timestamped `.legacy-*` directory instead of deleting it. Remove that backup only after checking the new service and recovering any old logs or configuration you need.
+
+## Static verification
+
+These checks do not run the installer:
+
+```bash
+bash -n install.sh
+python3 -m unittest -v tests/test_installer.py
 ```
 
 ## License
 
-MIT License
-
-Copyright (c) 2025
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-## Contributing
-
-Welcome to contribute through:
-- Submit Issues
-- Submit Pull Requests
-- Improve documentation
-- Share usage experience
-
-## Feedback
-
-When encountering issues, please provide:
-1. System version
-2. Python version
-3. Error messages
-4. Relevant logs
+MIT License, inherited from the original project.
