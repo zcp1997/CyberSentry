@@ -17,6 +17,7 @@ COWRIE_SSH_PORT="${COWRIE_SSH_PORT:-2222}"
 COWRIE_DOWNLOAD_LIMIT="${COWRIE_DOWNLOAD_LIMIT:-1048576}"
 LOG_RETENTION_DAYS="${LOG_RETENTION_DAYS:-30}"
 COWRIE_SETTLE_SECONDS="${COWRIE_SETTLE_SECONDS:-8}"
+FAIL2BAN_READY_TIMEOUT="${FAIL2BAN_READY_TIMEOUT:-30}"
 
 BACKUP_DIR="/root/config_backups"
 FAIL2BAN_CONFIG="/etc/fail2ban/jail.d/cybersentry.local"
@@ -84,11 +85,13 @@ validate_settings() {
     [[ "$COWRIE_DOWNLOAD_LIMIT" =~ ^[0-9]+$ ]] || die "COWRIE_DOWNLOAD_LIMIT 必须是十进制整数"
     [[ "$LOG_RETENTION_DAYS" =~ ^[0-9]+$ ]] || die "LOG_RETENTION_DAYS 必须是十进制整数"
     [[ "$COWRIE_SETTLE_SECONDS" =~ ^[0-9]+$ ]] || die "COWRIE_SETTLE_SECONDS 必须是十进制整数"
+    [[ "$FAIL2BAN_READY_TIMEOUT" =~ ^[0-9]+$ ]] || die "FAIL2BAN_READY_TIMEOUT 必须是十进制整数"
 
     COWRIE_SSH_PORT=$((10#$COWRIE_SSH_PORT))
     COWRIE_DOWNLOAD_LIMIT=$((10#$COWRIE_DOWNLOAD_LIMIT))
     LOG_RETENTION_DAYS=$((10#$LOG_RETENTION_DAYS))
     COWRIE_SETTLE_SECONDS=$((10#$COWRIE_SETTLE_SECONDS))
+    FAIL2BAN_READY_TIMEOUT=$((10#$FAIL2BAN_READY_TIMEOUT))
 
     ((COWRIE_SSH_PORT >= 1024 && COWRIE_SSH_PORT <= 65535)) \
         || die "COWRIE_SSH_PORT 必须在 1024-65535 之间"
@@ -96,6 +99,8 @@ validate_settings() {
     ((LOG_RETENTION_DAYS > 0)) || die "LOG_RETENTION_DAYS 必须大于 0"
     ((COWRIE_SETTLE_SECONDS >= 3 && COWRIE_SETTLE_SECONDS <= 60)) \
         || die "COWRIE_SETTLE_SECONDS 必须在 3-60 之间"
+    ((FAIL2BAN_READY_TIMEOUT >= 5 && FAIL2BAN_READY_TIMEOUT <= 120)) \
+        || die "FAIL2BAN_READY_TIMEOUT 必须在 5-120 之间"
 }
 
 reject_symlink_components() {
@@ -496,6 +501,30 @@ get_effective_ssh_ports() {
     printf '%s\n' "$ports" | paste -sd, -
 }
 
+wait_for_fail2ban_readiness() {
+    local elapsed=0
+
+    while ((elapsed < FAIL2BAN_READY_TIMEOUT)); do
+        if fail2ban-client ping >/dev/null 2>&1 \
+            && fail2ban-client status sshd >/dev/null 2>&1; then
+            log "Fail2ban 服务与 sshd jail 已就绪"
+            return 0
+        fi
+
+        if systemctl is-failed --quiet fail2ban; then
+            break
+        fi
+
+        sleep 1
+        elapsed=$((elapsed + 1))
+    done
+
+    warn "Fail2ban 未在 ${FAIL2BAN_READY_TIMEOUT} 秒内就绪，输出诊断信息"
+    systemctl status fail2ban --no-pager >&2 || true
+    journalctl -u fail2ban -n 50 --no-pager >&2 || true
+    die "Fail2ban sshd jail 未能在 ${FAIL2BAN_READY_TIMEOUT} 秒内就绪"
+}
+
 configure_fail2ban() {
     local ssh_ports
     ssh_ports="$(get_effective_ssh_ports)"
@@ -515,8 +544,7 @@ EOF
     fail2ban-client -t || die "Fail2ban 配置测试失败"
     systemctl enable fail2ban >/dev/null
     systemctl restart fail2ban
-    systemctl is-active --quiet fail2ban || die "Fail2ban 未能启动"
-    fail2ban-client status sshd >/dev/null || die "Fail2ban sshd jail 未激活"
+    wait_for_fail2ban_readiness
     log "Fail2ban 已启用，保护 SSH 端口 ${ssh_ports}"
 }
 

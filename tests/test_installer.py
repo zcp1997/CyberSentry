@@ -188,7 +188,28 @@ class InstallerContractTests(unittest.TestCase):
             generated.group(1),
             re.compile(r"\[sshd\].*bantime.*findtime.*maxretry", re.DOTALL),
         )
-        self.assertIn("fail2ban-client status sshd", fail2ban)
+        self.assertIn("wait_for_fail2ban_readiness", fail2ban)
+
+    def test_fail2ban_waits_for_socket_and_sshd_jail_readiness(self) -> None:
+        fail2ban = self.function_body("configure_fail2ban")
+        readiness = self.function_body("wait_for_fail2ban_readiness")
+        validation = self.function_body("validate_settings")
+
+        self.assertRegex(
+            INSTALLER,
+            r'FAIL2BAN_READY_TIMEOUT="\$\{FAIL2BAN_READY_TIMEOUT:-30\}"',
+        )
+        self.assertIn("FAIL2BAN_READY_TIMEOUT", validation)
+        self.assertLess(
+            fail2ban.index("systemctl restart fail2ban"),
+            fail2ban.index("wait_for_fail2ban_readiness"),
+        )
+        self.assertIn("FAIL2BAN_READY_TIMEOUT", readiness)
+        self.assertIn("fail2ban-client ping", readiness)
+        self.assertIn("fail2ban-client status sshd", readiness)
+        self.assertRegex(readiness, r"\bwhile\b|\bfor\b")
+        self.assertRegex(readiness, r"\bsleep\s+1\b")
+        self.assertIn("journalctl -u fail2ban", readiness)
 
     def test_cowrie_health_requires_settling_and_listening_socket(self) -> None:
         health = self.function_body("start_and_verify_cowrie")
